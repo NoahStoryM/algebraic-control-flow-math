@@ -1,0 +1,44 @@
+;; 10/3 22:11 的试验（不是可单独运行的文件）：把下面的子模块接在 art5-code.rkt 末尾，
+;; 再运行 racket -e '(require (submod (file "…/art5-code.rkt") proto))'。
+;; 结果：不改内核时 (* a a) 当场报错；加上「算式也是项」与「≡ 先算出已确定的算式再合一」、变参的 ≤ 以后，
+;; 两个变体都交出 ((3 4 5) (5 12 13) (6 8 10) (8 15 17) (9 12 15) (12 16 20))；结构上的合一照旧；
+;; 先写 pytho 再写 ≤ 会报「算式里还有未知的项」。
+
+(module* proto #f
+  (require (submod ".." relational))
+  (define r:+ +) (define r:* *)
+  (define r0 (with-handlers ([exn:fail? (λ (e) (exn-message e))])
+               (run* (a) (== (* a a) 9))))
+  (printf "不改内核：~a\n" r0)
+  (define ((lift op name) . xs) (if (andmap number? xs) (apply op xs) (cons name xs)))
+  (define plus (lift r:+ '+))
+  (define times (lift r:* '*))
+  (define (ev t s)
+    (match (walk t s)
+      [(cons (and op (or '+ '*)) args)
+       (define vs (map (λ (a) (ev a s)) args))
+       (unless (andmap number? vs) (error '≡ "算式里还有未知的项：~s" (cons op vs)))
+       (apply (if (eq? op '+) r:+ r:*) vs)]
+      [(cons a d) (cons (ev a s) (ev d s))]
+      [t t]))
+  (define ((≡ u v) s) (unify (ev u s) (ev v s) s))
+  (define ((≤ lo . rest) s)
+    (define hi (walk (last rest) s))
+    (for/fold ([s s]) ([x (drop-right rest 1)] [prev (cons lo (drop-right rest 1))])
+      (unify x (choose (inclusive-range (walk prev s) hi)) s)))
+  (let ([+ plus] [* times])
+    (define (pytho a b c) (≡ (+ (* a a) (* b b)) (* c c)))
+    (define (right-triangles l h)
+      (run* (a b c)
+        (≤ l a b c h)
+        (pytho a b c)))
+    (printf "变体一：~s\n" (right-triangles 1 20))
+    (define (right-triangles2 l h)
+      (run* (a b c)
+        (≤ l a b c h)
+        (≡ (+ (* a a) (* b b)) (* c c))))
+    (printf "变体二：~s\n" (right-triangles2 1 20))
+    (printf "合一照旧：~s\n" (run* (x y) (≡ `(,x 2) `(1 ,y))))
+    (printf "先写 pytho：~a\n" (with-handlers ([exn:fail? (λ (e) (exn-message e))])
+                                 (run* (a b c) (pytho a b c) (≤ 1 a b c 20)))))
+  (printf "谓词：~s ~s\n" (<= 1 3 4 5 20) (= (+ (* 3 3) (* 4 4)) (* 5 5))))

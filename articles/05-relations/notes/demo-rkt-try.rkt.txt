@@ -1,0 +1,56 @@
+;; 10/3 22:17 的试验（不是可单独运行的文件）：先按 notes/kanren-check/make-demos.sh 生成 demo-minimal.rkt，
+;; 把本文件放在同一目录、改名为 try.rkt 再运行（eval 那一段里的绝对路径要改成 demo-minimal.rkt 的位置）。
+;; 结果：demo.rkt 的 run* 不接受三个查询变量；写成 (run* (t) (fresh (a b c) …)) 交出同样的六组。
+#lang typed/racket/base/no-check
+;; 试验：Noah 22:17 的程序，基于 ambKanren 的 demo.rkt（一字不动，只把 typed/amb 换成第五篇的三个定义）
+(require "demo-minimal.rkt" racket/list)
+
+;; demo.rkt 里没有 project；这是 ambKanren main.rkt 里的定义，照抄
+(define-syntax project
+  (syntax-rules ()
+    [(_ () g ...) (all g ...)]
+    [(_ (x ...) g ...)
+     (λ (s) (let ([x (walk* x s)] ...) ((all g ...) s)))]))
+
+(define (pyth? a b c) (= (+ (* a a) (* b b)) (* c c)))
+
+;; pytho：要用到三个数的值，官方的办法是 project
+(define (pytho a b c)
+  (project (a b c)
+    (if (pyth? a b c) succeed fail)))
+
+;; betweeno：lo、hi 已知，x 依次取其间的数（conde + 递归）
+(define (betweeno lo x hi)
+  (project (lo hi)
+    (if (> lo hi)
+        fail
+        (conde [(== x lo)]
+               [else (betweeno (add1 lo) x hi)]))))
+
+;; (≤ l a b c h)：一段一段接起来
+(define (≤ lo . rest)
+  (define hi (last rest))
+  (let loop ([prev lo] [xs (drop-right rest 1)])
+    (if (null? xs)
+        succeed
+        (all (betweeno prev (car xs) hi) (loop (car xs) (cdr xs))))))
+
+;; 1. demo.rkt 的 run* 只接受一个查询变量：三个变量的写法展开不了
+(define multi
+  (with-handlers ([exn:fail? (λ (e) (exn-message e))])
+    (eval '(run* (a b c) (≤ 1 a b c 20) (pytho a b c))
+          (let ([ns (make-base-namespace)])
+            (parameterize ([current-namespace ns])
+              (namespace-require 'typed/racket/base/no-check)
+              (namespace-require '(file "/tmp/claude-0/-home-claude/be37b9c1-24fc-57b4-bc63-e760f3219d42/scratchpad/kc/demo-minimal.rkt")))
+            ns))))
+(printf "run* (a b c)：~a\n" multi)
+
+;; 2. 官方第一版的写法：一个查询变量，fresh 引入三条边
+(define (right-triangles l h)
+  (run* (t)
+    (fresh (a b c)
+      (== t (list a b c))
+      (≤ l a b c h)
+      (pytho a b c))))
+(printf "run* (t) + fresh：~s\n" (right-triangles 1 20))
