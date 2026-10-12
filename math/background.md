@@ -87,7 +87,7 @@ Oct 8, 2026 · @Noah W.M
 | 5.2 | 把栈写成帧的列表、边界写成列表里的 tag 条目，这两个有无就是两次决定：外层对应切开以后 tag 放不放回剩下的栈，内层对应捕获的那段拼回去时垫不垫一个新 tag。一刀两段，边界只有一个，两段各自决定留不留，所以两个决定独立 | Noah 提出，按规则核对 | 未定 |
 | 5.3 | 效应处理者对应外层无的两种。深处理者：handle E\[op v\] with h 变成 h 的分支作用于 v 与 λx. handle E\[x\] with h，分支在边界之外运行（外无），恢复时重装处理者（内有），即 `shift0`；浅处理者恢复时不装，即 `control0`。8 月「深处理者对应 `shift` / `reset`」的说法错在外层：`shift` 把分支留在边界之内，分支里再做同族操作会被自己接住。两者的关系是 (shift k e) = (shift0 k (reset e))。用 `shift` / `reset` 另加处理仍然写得出深处理者 | 裁定：M2 七家都答「对」，与 10/7 的结论一致；出处 Piróg、Polesiuk、Sieczkowski（FSCD 2019），Forster 等（2017）。Sol 与 Astra 引的定理编号不一致，未核原文 | 未定 |
 | 5.4 | 第五篇的写法用的是 `shift`，分支在边界之内运行；只有一族操作、分支里不再做同族操作、也没有别的能观察边界的控制时，与 `shift0` 看不出差别 | 推导；最后一个条件 Sol、Astra 补 | 未定 |
-| 5.5 | 逃逸式延续等于可组合延续加 abort；`call/cc` 可由 control、prompt、abort 定义（Sitaram 与 Felleisen 1990 第 3 节） | 页码有冲突：Astra 核的是第 73 页，Sol 说是第 75 页，待再核 | 未定 |
+| 5.5 | 逃逸式延续等于可组合延续加 abort；`call/cc` 可由 control、prompt、abort 定义（Sitaram 与 Felleisen 1990 第 3 节） | Astra 10/12 核扫描原页：第 3 节从第 73 页起，abort 在第 74 页，完整的 `call/cc` 定义在第 75 页，冲突解决。注意 abort 是先丢弃上下文再求值主体的语法形式；有 prompt 时，模拟整个程序的逃逸要让范围覆盖整个程序 | 未定 |
 
 ## 第 6 组：树、tag、处理者（第七篇）
 
@@ -160,6 +160,29 @@ Oct 8, 2026 · @Noah W.M
 | 9.5 | `scatter` / `gather`、`uncps` / `cps`、`anf0` / `anf1` 同形，都是一对 reflect / reify：一个把显式编码放回直接风格，一个把直接风格收回编码 | Opus 提出，Claude 没有逐对核对 | 未定 |
 | 9.6 | 组合子 B、C、I、K 可以读第三篇的四个基本运算。组合子逻辑是 λ 演算不带变量的写法，对应笛卡尔闭范畴里只用复合、配对、柯里化与求值的写法（范畴组合子） | 第一句 Opus 提出，未对照第三篇核；第二句凭记忆。Noah 10/8：早先有一版写过，重写第三篇时丢了 | 未定 |
 
+## 10/12 Astra 数学总审
+
+Astra 审了文章仓库 `c83ed2f` 的第一到五篇，以及这份文档 `edd4e53` 的第 1、2、5 组；报告在文章仓库 #64。正文的七条发现拆成了文章仓库 #65–#70。下表只记对这份文档的结论，论断本身等 Noah 定归属时一起改（见本仓库 #10）。
+
+| 编号 | 结论 | 后续 |
+| --- | --- | --- |
+| 1.1 | 纯 CCC 基底上成立（推导） | 见 M8 |
+| 1.2 | 成立（推导）；`cps->neg²` 已从正文删去，构造仍成立 | |
+| 1.3 | **要改**。M1：来回一趟还要求 CPS 箭头收到参数时只构造计算，否则可观察的先后会变（实测），「任何上下文」过宽。M8：1.1 的 𝒞 是纯的 CCC 基底，1.3 的 𝒞 带 `call/cc`，不能共用一个字母；例如 Set、R = Bool 时 Set(1, 1) 有 1 个元素，Kl(C\_R)(1, 1) 有 4 个，保持对象的同构要靠另一层控制语义 | 建议把纯基底记作 𝒟，写 𝒦 = Kl\_𝒟(C\_R)，带控制的直接风格另说；正文对应文章仓库 #65 |
+| 1.4、1.5 | 成立（推导）；1.5 的 `exit` 一句要按答案接口的模型读 | |
+| 1.6 | 方向对；Kuroda 指适于按值 CPS 的变体。Ferreira 与 Oliva 的 §6、§7.4 给出对应并指向 Murthy 博论第 9、10 章；博论原页未取得 | 文献可改引 Ferreira–Oliva |
+| 1.7 | 成立，核了 Atkey §2.3.5。Kobori、Kameyama、Kiselyov 正式发表于 EPTCS 212（2016），36–52 页 | |
+| 1.8 | 成立（推导）。Thielecke 核了 CW'01 前身版本；Friedman 1978 原文未核 | |
+| 1.9 | 成立（推导） | |
+| 2.1–2.3、2.7、2.8 | 在条目写明的范围内成立（推导）；2.1 要连同整个搜索终止的约定读 | |
+| 2.4 | 成立，核了 Filinski 1994 §5.2、§5.5；「同形」只指都是 T a → a | |
+| 2.5 | 成立；逻辑合取与环境变换要按同一解集语义比较 | |
+| 2.6 | 保守性核了 Rathjen 的 Corollary 1.2；带背景理论时其公理也要满足条件 | |
+| 5.1 | 成立，核了 Dybvig、Peyton Jones、Sabry §2 | |
+| 5.2、5.4 | 成立（推导） | |
+| 5.3 | 成立。Piróg 等 §3.3 定理 3–6、§4.3 定理 9–12；定理 6 用的是上下文内归约，不能说成两个语言逐小步相同。Forster 2017 未核 | Sol 与 Astra 的编号冲突由此解决 |
+| 5.5 | 页码冲突解决，见上表 | |
+
 ## 相对送审稿的改动
 
 10/8 改入的都是评审中几家一致、Claude 核对成立的更正，依据见「盲读评审」文档「记录」一节的数学问题表与 M1–M13 表。送审稿的「第二部要认的范畴论」对照表和 CTP 初版一节没有搬进来，它们属于取舍与计划，留在总纲「第二部：CTP」。
@@ -207,7 +230,7 @@ Oct 8, 2026 · @Noah W.M
 
 | 文献 | 用来说明什么 | 状态 |
 | --- | --- | --- |
-| Sitaram 与 Felleisen，Control Delimiters and Their Hierarchies（1990） | 5.5：第 3 节用 control、prompt、abort 定义 `call/cc` | Astra 核到第 73 页，Sol 说第 75 页，待再核 |
+| Sitaram 与 Felleisen，Control Delimiters and Their Hierarchies（1990） | 5.5：第 3 节用 control、prompt、abort 定义 `call/cc` | Astra 10/12 核扫描原页：§3 第 73–75 页，`call/cc` 的完整定义在第 75 页 |
 | Murthy，博士论文（Cornell，1990）；An Evaluation Semantics for Classical Proofs | 1.6 否定翻译的变体；1.8 A-翻译 | 博士论文一点来自 L1；后一篇及其节号由 Sol 给出，未核 |
 | Thielecke，Comparing Control Constructs by Double-Barrelled CPS | 1.8 带两个延续的 CPS | 题名由 Sol 给出，未核 |
 | Atkey，Parameterised Notions of Computation | 1.7 答案类型可变 | 凭记忆 |
