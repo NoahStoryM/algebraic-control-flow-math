@@ -36,7 +36,7 @@ Mathematical background, writing plans and discussion records behind *The Algebr
 
 这些文件 2026-10-12 从 Claude Docs 导出，正文里还会说「这份总纲」「标签页」「附件」「文档」，指的就是上表右列的原位置，对应到这里左列的文件。引用其他文档的地方已经改成仓库里的相对链接；`claude.ai/chat/…` 的链接是 Noah 的私人对话，别的人打不开。
 
-还没有搬过来的：盲读评审的流程、提示词与评分表（里面有预测的标准答案），等 Noah 决定。
+盲读评审的流程、提示词与评分表（里面有预测的标准答案）留在 Claude Artifacts，不入库（Noah 10/12）。
 
 ## 协议
 
