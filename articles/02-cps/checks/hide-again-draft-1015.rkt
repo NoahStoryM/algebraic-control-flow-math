@@ -52,3 +52,21 @@
 (check-equal? (three k) (((∘𝒦 cps:h cps:g cps:f) x) k))
 
 (displayln "all checks passed")
+
+;; 第二版甲：运算律经 flip 由 ∘ 继承
+(define neg:f (flip cps:f))
+(define neg:g (flip cps:g))
+(define neg:h (flip cps:h))
+(define (same? a b) (equal? ((a x) k) ((b x) k)))
+(check-true (same? (flip id) cps:id))
+(check-true (same? (cps id) cps:id))
+(check-true (same? (flip (∘𝒰 neg:h (flip (∘𝒦 cps:g cps:f))))
+                   (flip (∘𝒰 neg:h (∘𝒰 neg:g neg:f)))))
+(check-true (same? (flip (∘𝒰 neg:h (∘𝒰 neg:g neg:f)))
+                   (flip (∘𝒰 neg:h neg:g neg:f))))
+(check-true (same? (flip (∘𝒰 neg:h neg:g neg:f)) (∘𝒦 cps:h cps:g cps:f)))
+(check-true (same? (∘𝒦 cps:h (∘𝒦 cps:g cps:f)) (∘𝒦 cps:h cps:g cps:f)))
+(check-true (same? (∘𝒦 cps:f cps:id) (flip (∘𝒰 neg:f id))))
+(check-true (same? (flip (∘𝒰 neg:f id)) cps:f))
+(check-true (same? (∘𝒦 cps:id cps:f) cps:f))
+(displayln "second-version checks passed")
