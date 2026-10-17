@@ -8,7 +8,7 @@ Oct 7, 2026 · @Noah W.M
 
 ## 这个系列要做什么
 
-「控制流的代数本质」（The Algebraic Essence of Control Flow）是第一部，共七篇，用 Racket 与 Typed Racket 讲延续、CPS、定界延续、关系、单子与代数效应。第二部是重写 Category Theory in Programming（CTP），范畴论留在那里讲。中文先写，用 .md 在知乎发完；英文版等中文冻结后再译。定位、完成标准与发布顺序见 [定位与发布](positioning.md)，第二部见 [第二部：CTP](../part2/ctp.md)。
+「控制流的代数本质」（The Algebraic Essence of Control Flow）是第一部，共七篇，用 Racket 与 Typed Racket 讲延续、CPS、定界延续、关系、单子与代数作用。第二部是重写 Category Theory in Programming（CTP），范畴论留在那里讲。中文先写，用 .md 在知乎发完；英文版等中文冻结后再译。定位、完成标准与发布顺序见 [定位与发布](positioning.md)，第二部见 [第二部：CTP](../part2/ctp.md)。
 
 - **代数本质**：第一部最终要说的两件事，Noah 10/16 定，原话见 [定位与发布](positioning.md) 的「代数本质」一节。
 - **方法是先造后认**：每一步按「问题、代码、现象、概念」走。先把东西造出来，现象摆在眼前，再给它起名字。
@@ -20,7 +20,7 @@ Oct 7, 2026 · @Noah W.M
 
 ## 各篇一览
 
-前四篇讲延续，第五篇讲关系，第六篇讲单子，第七篇讲多 prompt-tag 与代数效应。背后的范畴论不在这七篇里，留给第二部。英文标题的格式是「When / Where / What / How / Which…: …」；标题都是正文写完再定。
+前四篇讲延续，第五篇讲关系，第六篇讲单子，第七篇讲多 prompt-tag 与代数作用。背后的范畴论不在这七篇里，留给第二部。英文标题的格式是「When / Where / What / How / Which…: …」；标题都是正文写完再定。
 
 | 篇 | 标题 | 讲什么 | 状态 | 文档 |
 | --- | --- | --- | --- | --- |
@@ -30,7 +30,7 @@ Oct 7, 2026 · @Noah W.M
 | 第四篇 | 前沿回望之时：机器中的镜子 | CPS / ANF 编译遍；镜子破裂（两种边界共用一种机制） | 中英定稿，[已发表](https://zhuanlan.zhihu.com/p/2049638709486735603) | 待建；正文已存为总纲附件 |
 | 第五篇 | 歧路何从：表里的平行世界（Which Way at the Fork: Parallel Worlds in a Table） | 表、关系、`amb`、关系的世界 ℬ 与 ℒ；后半篇是关系语言、世界 ℛ、与逻辑的对应 | 写作中：00 到 08 定稿，09 待审，其后未写 | [第五篇 歧路何从：表里的平行世界](../articles/05-relations/sections.md) |
 | 第六篇 | 未定 | 单子：从赋值造出状态世界，与延续、列表并排，回认异常；捕获的延续是 Kleisli 箭头；宿主的 `let` 是一个巨大单子的绑定写法 | 有大纲 v1.3.3（10/7 按 Noah 的口述改了入口与编排）；第五篇的新名字等仍待同步 | [第六篇 单子（计划）](../articles/06-monads/overview.md) |
-| 第七篇 | 未定 | 多 prompt-tag 与代数效应：程序栈定界不再够用，自己维护栈，抽象出 `prompt0-at` / `control0-at` | 只有素材 | 待建；素材在第六篇文档附的大纲里，摘要见「伏笔与线索」 |
+| 第七篇 | 未定 | 多 prompt-tag 与代数作用：程序栈定界不再够用，自己维护栈，抽象出 `prompt0-at` / `control0-at` | 只有素材 | 待建；素材在第六篇文档附的大纲里，摘要见「伏笔与线索」 |
 
 第二部不在这张表里：它是 CTP 的重写，还没有开始，初版现状与重写清单见 [第二部：CTP](../part2/ctp.md)。
 
