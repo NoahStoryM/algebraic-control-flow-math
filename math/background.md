@@ -265,6 +265,7 @@ Astra 审了文章仓库 `c83ed2f` 的第一到五篇，以及这份文档 `edd4
 | Sitaram 与 Felleisen，Control Delimiters and Their Hierarchies（1990） | 5.5：第 3 节用 control、prompt、abort 定义 `call/cc` | Astra 10/12 核扫描原页：§3 第 73–75 页，`call/cc` 的完整定义在第 75 页 |
 | Murthy，博士论文（Cornell，1990）；An Evaluation Semantics for Classical Proofs | 1.6 否定翻译的变体；1.8 A-翻译 | 博士论文一点来自 L1；后一篇及其节号由 Sol 给出，未核 |
 | Thielecke，Comparing Control Constructs by Double-Barrelled CPS | 1.8 带两个延续的 CPS | 题名由 Sol 给出，未核 |
+| Friedman，Classically and Intuitionistically Provably Recursive Functions（1978） | 1.8 A-翻译的出处；第三章「A-翻译」只用名字，不引（Noah 11/2：文献等第一部冻结后再补） | 凭记忆，未核 |
 | Atkey，Parameterised Notions of Computation | 1.7 答案类型可变 | 凭记忆 |
 | Kobori、Kameyama、Kiselyov，Answer-Type Modification without Tears | 1.7 | 作者已改正（送审稿误归 Atkey），年份未核 |
 | Berdine、O'Hearn、Reddy、Thielecke，Linear Continuation-Passing | 9.4：它说的线性不等于「恰好调用一次」 | 凭记忆 |
