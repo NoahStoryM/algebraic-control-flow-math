@@ -74,3 +74,39 @@
 (define ta (make-continuation-prompt-tag 'a)) (define tb (make-continuation-prompt-tag 'b))
 (printf "B3 racket/control ~s\n"
         (rc:reset-at ta (list 'a: (rc:reset-at tb (list 'b: (rc:shift-at ta k (list (k 1) (k 2))))))))
+
+;; ---------- C. 第二版补：把 B2 修好，再看 B3（照 #73 A2，Astra 的修法） ----------
+;; 修法：进入边界时记下整张表，离开时把整张表换回去，不只换回自己那一条。
+(module fixed racket
+  (provide reset-at abort-at shift-at)
+  (define meta (make-hasheq))
+  (define (meta-ref t) (hash-ref meta t (λ () (λ v* (error 'abort-at "没有 ~a 的边界" t)))))
+  (define (abort-at t . v*) (apply (meta-ref t) v*))
+  (define (call/prompt-at t thk)
+    (define m0 (hash-copy meta))                          ; 整张表的快照
+    (let/cc k1
+      (hash-set! meta t (λ v* (set! meta (hash-copy m0)) (apply k1 v*)))
+      (call-with-values thk (λ v* (apply abort-at t v*)))))
+  (define-syntax-rule (reset-at t b ...) (call/prompt-at t (λ () b ...)))
+  (define (call/lc-at t proc)
+    (let/cc k
+      (define (local-k . v*) (reset-at t (apply k v*)))
+      (proc local-k)))
+  (define-syntax-rule (shift-at t k b ...)
+    (call/lc-at t (λ (k) (call-with-values (λ () b ...) (λ v* (apply abort-at t v*)))))))
+(require (prefix-in f: 'fixed))
+
+(set! log '())
+(define c2
+  (try (λ ()
+         (let ([r (f:reset-at 'a
+                    (note 'in-a)
+                    (f:reset-at 'b (note 'in-b) (f:abort-at 'a 'done))
+                    (note 'after-b))])
+           (note r)
+           (f:abort-at 'b 'ghost)))))
+(printf "C2 整表换回以后，B2 的日志 ~s 结果 ~s\n" (reverse log) c2)
+(printf "C3 整表换回以后，B3        ~s\n"
+        (try (λ () (f:reset-at 'a (list 'a: (f:reset-at 'b (list 'b: (f:shift-at 'a k (list (k 1) (k 2))))))))))
+(printf "C3 应得（racket/control）   ~s\n"
+        (rc:reset-at ta (list 'a: (rc:reset-at tb (list 'b: (rc:shift-at ta k (list (k 1) (k 2))))))))

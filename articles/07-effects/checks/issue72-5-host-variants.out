@@ -1,0 +1,10 @@
+算子     原型                     宿主，reset0/prompt0      宿主，reset/prompt
+shift    ((1 2 3) (outer))  ((1 2 3) (outer))  ((1 2 3) (outer))  三者相同
+control  ((3 2 1) (outer))  ((3 2 1) (outer))  ((3 2 1) (outer))  三者相同
+shift0   ((1 2 3) ())  ((1 2 3) ())  ((1 2 3) (outer))  原型同 reset0，不同 reset
+control0 (error ())  (error ())  ((3 2 1) (outer))  原型同 reset0，不同 reset
+
+#73 B3：(reset (cons 'outer (reset (shift0 k (shift0 j '())))))
+  宿主 reset-at  (outer)
+  宿主 reset0-at ()
+  原型           ()
