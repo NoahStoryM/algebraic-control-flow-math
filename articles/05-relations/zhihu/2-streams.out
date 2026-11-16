@@ -1,0 +1,6 @@
+(run #f (x y) (appendo x y (quote (1 2 3))))
+  ⇒ ((() (1 2 3)) ((1) (2 3)) ((1 2) (3)) ((1 2 3) ()))
+(run 3 (q) (alwayso) (== q (quote again)))
+  ⇒ ((again) (again) (again))
+(run 1 (q) (disj (nevero) (== q (quote here))))
+  ⇒ ((here))

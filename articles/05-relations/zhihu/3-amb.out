@@ -1,0 +1,16 @@
+(for/list ((p (in-amb (let ((a (amb 1 2 3)) (b (amb 1 2 3))) (unless (= (+ a b) 4) (amb-fail)) (list a b))))) p)
+  ⇒ ((1 3) (2 2) (3 1))
+(run #f (x y) (appendo x y (quote (1 2 3))))
+  ⇒ ((() (1 2 3)) ((1) (2 3)) ((1 2) (3)) ((1 2 3) ()))
+(run 3 (q) (alwayso) (== q (quote again)))
+  ⇒ ((again) (again) (again))
+(within-2s (λ () (run 1 (q) (disj (nevero) (== q (quote here))))))
+  ⇒ 两秒内没有答案
+(within-2s (λ () (parameterize ((current-amb-merger amb-interleave)) (run 1 (q) (disj (nevero) (== q (quote here)))))))
+  ⇒ ((here))
+(within-2s (λ () (parameterize ((current-amb-merger amb-interleave)) (run 1 (q) (disj (spino) (== q (quote here)))))))
+  ⇒ 两秒内没有答案
+(list v1 v2 v3)
+  ⇒ ((0) 1 (1))
+(list (xs (conj three later)) (xs (conj/local three later)))
+  ⇒ ((3 1 2) (1 2 3))
