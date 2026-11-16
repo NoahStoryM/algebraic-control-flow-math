@@ -101,3 +101,18 @@
       (in-amb (with-counter (with-state '() (nquery (x y) (nappendo x y '(1 2)))))))
 (show "未知项按计数器编号，计数器在整次搜索外"
       (with-counter (in-amb (with-state '() (nquery (x y) (nappendo x y '(1 2)))))))
+
+;; ---------- 第 5 节的三个结果，只用 reset-at 与 shift-at 重跑 ----------
+(define tu (make-continuation-prompt-tag 'user))
+(define (between lo hi) (choose (for/list ([n (inclusive-range lo hi)]) (λ () n))))
+(define (triangle l h)
+  (let* ([a ((between l h))] [b ((between a h))] [c ((between b h))])
+    (unless (= (+ (* a a) (* b b)) (* c c)) (amb))
+    (list a b c)))
+(define runs 0)
+(show "第一组（返回的边界在整次搜索外）"
+      (reset-at tu (in-amb (let ([t (triangle 1 20)]) (set! runs (add1 runs)) (shift-at tu _ t)))))
+(show "主体运行次数" runs)
+(define (body) (let ([x (amb 1 2 3)]) (if (= x 2) (shift-at tu _ 'boom) x)))
+(show "返回的边界在里" (in-amb (reset-at tu (body))))
+(show "返回的边界在外" (reset-at tu (in-amb (body))))
