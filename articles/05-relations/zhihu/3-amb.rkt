@@ -1,83 +1,111 @@
-#lang racket
-;; 知乎回答「miniKanren 的实现方式」的代码之三：把流换成 amb。
-;; 运行：racket 3-amb.rkt（Racket 9.3；需要 amb 3.0）
-;; 未知项、walk、unify、reify 原样取自 1-lists.rkt（改写自 microKanren，见那里的说明）。
-(require amb amb/merge
-         (only-in "1-lists.rkt" var walk unify reify))
+#lang typed/racket/base
+;; 知乎回答「miniKanren 的实现方式」的代码之三：目标交出一张代换，别的可能由 amb 记着。
+;; 运行：racket 3-amb.rkt（Racket 9.3；需要 amb 3.0 与 typed-amb 3.0）
+;; 出处与许可见 0-terms.rkt 与 NOTICE。
+(require racket/include typed/amb typed/amb/merge "0-terms.rkt")
+(require/typed "timeout.rkt" [within-2s (→ (→ Any) Any)])
 
-;; ---- 目标：收一张代换，交出一张代换；别的可能由 amb 记着 ----
-(define ((== u v) s) (or (unify u v s) (amb-fail)))
-(define ((disj . g*) s) ((for/amb ([g g*]) g) s))
-(define ((conj . g*) s) (for/fold ([s s]) ([g g*]) (g s)))
+;; ---- 第三个类型 ----
+(define-type Goal (→ Substitution Substitution))
 
-(define-syntax-rule (fresh (x ...) g ...)
-  (λ (s) (let ([x (var 'x)] ...) ((conj g ...) s))))
+(: == (→ Term Term Goal))
+(define ((== u v) s)
+  (or (unify u v s) (amb-fail)))
 
-;; n 是要几组答案，#f 是全要
-(define-syntax-rule (run n (x ...) g ...)
-  (let ([x (var 'x)] ...)
-    (for/list ([_ (or n (in-naturals))]             ; 先数数：够了就不再去找下一组
-               [s (in-amb ((conj g ...) '()))])
-      (reify (list x ...) s))))
+(: succeed Goal)
+(define (succeed s) s)
+
+(: fail Goal)
+(define (fail s) (amb-fail))
+
+(: disj2 (→ Goal Goal Goal))
+(define ((disj2 g1 g2) s)
+  ((amb g1 g2) s))
+
+(: conj2 (→ Goal Goal Goal))
+(define ((conj2 g1 g2) s)
+  (g2 (g1 s)))
+
+;; 一步一步地问这次搜索；三个分支对着 take-inf 的三个分支
+(: take-amb (→ (Option Natural) (Generatorof (List Substitution)) (Listof Substitution)))
+(define (take-amb n gen)
+  (if (and n (zero? n))
+      '()
+      (let-values ([(v next) (gen)])
+        (cond [(not v) '()]                                            ; 没有了
+              [(pair? v) (cons (car v) (take-amb (and n (sub1 n)) next))]  ; 一个答案，后面还有
+              [else (take-amb n next)]))))                             ; 暂停了 v 次
+
+(: run-goal (→ (Option Natural) Goal (Listof Substitution)))
+(define (run-goal n g)
+  (take-amb n (λ () (amb-generate* (λ () (g empty-s))))))
+
+(include "wires.rkt")
 
 ;; 关系的入口处让出一步
 (define-syntax-rule (defrel (name x ...) g ...)
-  (define ((name x ...) s)
-    (amb-pause)
-    ((conj g ...) s)))
+  (define (name [x : Term] ...) : Goal
+    (λ (s) (amb-pause) ((conj g ...) s))))
 
-(module+ main
-  (define-syntax-rule (show e) (begin (write 'e) (display "\n  ⇒ ") (writeln e)))
-  (define (within-2s thunk)
-    (define ch (make-channel))
-    (define th (thread (λ () (channel-put ch (thunk)))))
-    (define v (sync/timeout 2 ch))
-    (unless v (kill-thread th))
-    (or v '两秒内没有答案))
+;; ---- 试一试 ----
+(define-syntax-rule (show e) (begin (write 'e) (display "\n  ⇒ ") (writeln e)))
 
-  ;; amb 本身
-  (show (for/list ([p (in-amb (let ([a (amb 1 2 3)] [b (amb 1 2 3)])
-                                (unless (= (+ a b) 4) (amb-fail))
-                                (list a b)))])
-          p))
+;; amb 本身
+(show (for/list : (Listof (Listof Integer))
+          ([p (in-amb (let ([a (amb 1 2 3)] [b (amb 1 2 3)])
+                        (unless (= (+ a b) 4) (amb-fail))
+                        (list a b)))])
+        p))
 
-  (defrel (appendo l t out)
-    (disj (conj (== l '()) (== t out))
-          (fresh (a d res)
-            (== l (cons a d))
-            (== out (cons a res))
-            (appendo d t res))))
-  (show (run #f (x y) (appendo x y '(1 2 3))))
+(defrel (appendo l t out)
+  (conde
+    [(== l '()) (== t out)]
+    [(fresh (a d res)
+       (== l (cons a d))
+       (== out (cons a res))
+       (appendo d t res))]))
+(show (run* (x y) (appendo x y '(1 2 3))))
 
-  ;; 写不完的答案
-  (defrel (alwayso) (disj (== 1 1) (alwayso)))
-  (show (run 3 (q) (alwayso) (== q 'again)))
+(defrel (alwayso)
+  (conde [succeed] [(alwayso)]))
+(show (run 3 q (alwayso)))
 
-  ;; 左边没有尽头，一个答案也不交
-  (defrel (nevero) (nevero))
-  (show (within-2s (λ () (run 1 (q) (disj (nevero) (== q 'here))))))
-  (show (within-2s (λ () (parameterize ([current-amb-merger amb-interleave])
-                           (run 1 (q) (disj (nevero) (== q 'here)))))))
+;; 左边没有尽头：默认先把左边走完
+(defrel (nevero) (nevero))
+(show (within-2s (λ () (run 1 q (conde [(nevero)] [(== q 'here)])))))
+(show (parameterize ([current-amb-merger amb-interleave])
+        (run 1 q (conde [(nevero)] [(== q 'here)]))))
+(show (parameterize ([current-amb-merger amb-interleave])
+        (run 4 (x y z) (appendo x y z))))
 
-  ;; 换了合并的办法，可这一支从不让出
-  (define ((spino) s) ((spino) s))
-  (show (within-2s (λ () (parameterize ([current-amb-merger amb-interleave])
-                           (run 1 (q) (disj (spino) (== q 'here)))))))
+;; 换了合并的办法，可这一支从不让出
+(: spino (→ Goal))
+(define (spino) (λ (s) ((spino) s)))
+(show (within-2s (λ () (parameterize ([current-amb-merger amb-interleave])
+                         (run 1 q (conde [(spino)] [(== q 'here)]))))))
 
-  ;; 一次搜索，一步一步地问
-  (define (count-from n)
-    (amb n (begin (amb-pause) (count-from (add1 n)))))
-  (let*-values ([(v1 next) (amb-generate* (λ () (count-from 0)))]
-                [(v2 next) (next)]
-                [(v3 next) (next)])
-    (show (list v1 v2 v3)))
+;; 一次搜索，一步一步地问
+(: count-from (→ Integer Integer))
+(define (count-from n)
+  (amb n (begin (amb-pause) (count-from (add1 n)))))
+(show (let*-values ([(v1 next) (amb-generate* (λ () (count-from 0)))]
+                    [(v2 next) (next)]
+                    [(v3 next) (next)])
+        (list v1 v2 v3)))
+(show (let*-values ([(v1 next) (amb-generate* (λ () (amb 'a)))]
+                    [(v2 next) (next)])
+        (list v1 v2)))
 
-  ;; 合取的两种写法：答案相同，顺序可能不同
-  (define ((conj/local g1 g2) s) (g2 (amb-local (g1 s))))
-  (define x (var 'x)) (define y (var 'y))
-  (define three (disj (disj (== x 1) (== x 2)) (== x 3)))
-  (define later (λ (s) (amb-pause) ((== y 'p) s)))
-  (define (xs goal) (for/list ([s (in-amb (goal '()))]) (walk x s)))
-  (parameterize ([current-amb-merger amb-interleave])
-    (show (list (xs (conj three later))
-                (xs (conj/local three later))))))
+;; 「并且」的两种写法：答案相同，轮流走时先后可能不同
+(: conj2/local (→ Goal Goal Goal))
+(define ((conj2/local g1 g2) s) (g2 (amb-local (g1 s))))
+(define x (var 'x))
+(define y (var 'y))
+(define three (disj2 (disj2 (== x 1) (== x 2)) (== x 3)))
+(: later Goal)
+(define (later s) (amb-pause) ((== y 'p) s))
+(: xs (→ Goal (Listof Term)))
+(define (xs g) (map (λ ([s : Substitution]) (walk x s)) (run-goal #f g)))
+(parameterize ([current-amb-merger amb-interleave])
+  (show (list (xs (conj2 three later))
+              (xs (conj2/local three later)))))

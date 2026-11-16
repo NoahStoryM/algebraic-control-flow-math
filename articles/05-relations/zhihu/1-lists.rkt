@@ -1,106 +1,88 @@
-#lang racket
-;; 知乎回答「miniKanren 的实现方式」的代码之一：只用列表的内核。
+#lang typed/racket/base
+;; 知乎回答「miniKanren 的实现方式」的代码之一：目标交出列表。
 ;; 运行：racket 1-lists.rkt（Racket 9.3，不需要任何包）
-;;
-;; walk、unify 与读出答案的 reify 改写自 microKanren：
-;;   https://github.com/jasonhemann/microKanren
-;;   Jason Hemann and Daniel P. Friedman, "μKanren: A Minimal Functional
-;;   Core for Relational Programming", Scheme Workshop 2013.
-;;   Copyright (C) 2013 Jason Hemann and Daniel P. Friedman, MIT License.
-;;   许可全文见同目录的 NOTICE。
-;; 改动：未知项是结构体，按身份区分，不用计数器；目标交出列表，不交出流。
+;; 名字照《The Reasoned Schemer》第二版；出处与许可见 0-terms.rkt 与 NOTICE。
+(require racket/list racket/include "0-terms.rkt")
+(require/typed "timeout.rkt" [within-2s (→ (→ Any) Any)])
 
-(provide var walk unify reify)
+;; ---- 第三个类型 ----
+(define-type Goal (→ Substitution (Listof Substitution)))
 
-;; ---- 未知项与代换 ----
-(struct var (name)
-  #:property prop:custom-write                      ; 只为打印：未知项显示成它的名字
-  (λ (v port mode) (write (var-name v) port)))
-
-(define (walk t s)
-  (define p (and (var? t) (assq t s)))
-  (if p (walk (cdr p) s) t))
-
-;; ---- 合一 ----
-(define (unify u v s)
-  (let ([u (walk u s)] [v (walk v s)])
-    (cond [(eq? u v) s]
-          [(var? u) (cons (cons u v) s)]
-          [(var? v) (cons (cons v u) s)]
-          [(and (pair? u) (pair? v))
-           (let ([s (unify (car u) (car v) s)])
-             (and s (unify (cdr u) (cdr v) s)))]
-          [(equal? u v) s]
-          [else #f])))
-
-;; ---- 目标：收一张代换，交出一列代换 ----
+(: == (→ Term Term Goal))
 (define ((== u v) s)
-  (define s1 (unify u v s))
-  (if s1 (list s1) '()))
+  (let ([s (unify u v s)])
+    (if s (list s) '())))
 
-(define ((disj . g*) s) (append-map (λ (g) (g s)) g*))
-(define ((conj . g*) s)
-  (for/fold ([s* (list s)]) ([g g*])
-    (append-map g s*)))
+(: succeed Goal)
+(define (succeed s) (list s))
 
-(define-syntax-rule (fresh (x ...) g ...)
-  (λ (s) (let ([x (var 'x)] ...) ((conj g ...) s))))
+(: fail Goal)
+(define (fail s) '())
 
-;; ---- 读出答案 ----
-(define (walk* t s)
-  (let ([t (walk t s)])
-    (if (pair? t) (cons (walk* (car t) s) (walk* (cdr t) s)) t)))
+(: disj2 (→ Goal Goal Goal))
+(define ((disj2 g1 g2) s)
+  (append (g1 s) (g2 s)))
 
-(define (reify t s)
-  (define (name t r)
-    (let ([t (walk t r)])
-      (cond [(var? t) (cons (cons t (string->symbol (format "_.~a" (length r)))) r)]
-            [(pair? t) (name (cdr t) (name (car t) r))]
-            [else r])))
-  (let ([t (walk* t s)])
-    (walk* t (name t '()))))
+(: conj2 (→ Goal Goal Goal))
+(define ((conj2 g1 g2) s)
+  (append-map g2 (g1 s)))
 
-(define-syntax-rule (run* (x ...) g ...)
-  (let ([x (var 'x)] ...)
-    (for/list ([s ((conj g ...) '())])
-      (reify (list x ...) s))))
+(: run-goal (→ (Option Natural) Goal (Listof Substitution)))
+(define (run-goal n g)
+  (let ([s* (g empty-s)])
+    (if (and n (< n (length s*))) (take s* n) s*)))
+
+(include "wires.rkt")
+
+;; 关系的主体等代换来了才展开
+(define-syntax-rule (defrel (name x ...) g ...)
+  (define (name [x : Term] ...) : Goal
+    (λ (s) ((conj g ...) s))))
 
 ;; ---- 试一试 ----
-(module+ main
-  (define-syntax-rule (show e) (begin (write 'e) (display "\n  ⇒ ") (writeln e)))
-  (define x (var 'x))
-  (define y (var 'y))
-  (show (walk x (list (cons y 5) (cons x y))))
-  (show (unify (list x 2) (list 1 y) '()))
-  (show (unify (list x 2) (list 1 x) '()))
-  (show ((== x 1) '()))
-  (show ((disj (== x 1) (== x 2)) '()))
-  (show ((conj (disj (== x 1) (== x 2)) (== y x)) '()))
-  (show ((conj (== x 1) (== x 2)) '()))
+(define-syntax-rule (show e) (begin (write 'e) (display "\n  ⇒ ") (writeln e)))
+(define x (var 'x))
+(define y (var 'y))
+(show (walk x (list (cons y 5) (cons x y))))
+(show (unify (list x 2) (list 1 y) empty-s))
+(show (unify (list x 2) (list 1 x) empty-s))
+(show (unify x (list x) empty-s))
 
-  (define (appendo l t out)
-    (disj (conj (== l '()) (== t out))
-          (fresh (a d res)
-            (== l (cons a d))
-            (== out (cons a res))
-            (appendo d t res))))
-  (show (run* (z) (appendo '(1 2) '(3) z)))
-  (show (run* (x y) (appendo x y '(1 2 3))))
-  (show (run* (x y) (== x y)))
-  (show (run* (x y) (== x x)))
-  (show (run* (x y) (== x (list y 1 y))))
+(show ((== x 1) empty-s))
+(show ((disj2 (== x 1) (== x 2)) empty-s))
+(show ((conj2 (disj2 (== x 1) (== x 2)) (== y x)) empty-s))
+(show ((conj2 (== x 1) (== x 2)) empty-s))
+(show (succeed empty-s))
+(show (fail empty-s))
 
-  ;; 零个目标
-  (show ((conj) '()))
-  (show ((disj) '()))
+(defrel (appendo l t out)
+  (conde
+    [(== l '()) (== t out)]
+    [(fresh (a d res)
+       (== l (cons a d))
+       (== out (cons a res))
+       (appendo d t res))]))
+(show (run* z (appendo '(1 2) '(3) z)))
+(show (run* (x y) (appendo x y '(1 2 3))))
+(show (run* (x y) (== x y)))
+(show (run* (x y) (== x x)))
 
-  ;; { x | ∃y. (y = 5 ∨ y = 6) ∧ y = x }
-  (define (P x y) (conj (disj (== y 5) (== y 6)) (== y x)))
-  (show (run* (x) (fresh (y) (P x y))))
+;; 第二层：定住几列，读出另外几列
+(: split (→ Term (Listof Term)))
+(define (split out) (run* (x y) (appendo x y out)))
+(: join (→ Term Term (Listof Term)))
+(define (join l t) (run* z (appendo l t z)))
+(show (split '(1 2 3)))
+(show (join '(1 2) '(3)))
 
-  ;; 写不完的答案：列表要收齐才交得出
-  (define (alwayso) (disj (== 1 1) (fresh () (alwayso))))
-  (define ch (make-channel))
-  (define th (thread (λ () (channel-put ch (run* (q) (alwayso))))))
-  (write '(run* (q) (alwayso))) (display "\n  ⇒ ")
-  (writeln (or (sync/timeout 2 ch) (begin (kill-thread th) '两秒内没有答案))))
+;; { x | ∃y. (y = 5 ∨ y = 6) ∧ y = x }
+(defrel (P x y)
+  (conde [(== y 5)] [(== y 6)])
+  (== y x))
+(show (run* x (fresh (y) (P x y))))
+
+;; 写不完的答案：列表要收齐才交得出
+(defrel (alwayso)
+  (conde [succeed] [(alwayso)]))
+(show (within-2s (λ () (run 3 q (alwayso)))))
+(show (within-2s (λ () (run 4 (x y z) (appendo x y z)))))

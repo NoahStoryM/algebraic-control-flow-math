@@ -1,13 +1,21 @@
-这个目录里的 1-lists.rkt、2-streams.rkt、3-amb.rkt 含有改写自 microKanren 的代码
-（walk、unify、reify，以及流的 mplus、bind、take）。
+这个目录里的 0-terms.rkt、wires.rkt、1-lists.rkt、2-streams.rkt、3-amb.rkt 含有改写自
+《The Reasoned Schemer》第二版代码的部分：walk、ext-s、occurs?、unify、walk*、
+reify-name、reify-s、reify、call/fresh，流的 append-inf、append-map-inf、take-inf，
+以及 disj、conj、conde、fresh、defrel、run、run* 这几个宏。
 
-来源：https://github.com/jasonhemann/microKanren
-      Jason Hemann and Daniel P. Friedman, "μKanren: A Minimal Functional
-      Core for Relational Programming", Scheme Workshop 2013.
+来源：https://github.com/TheReasonedSchemer2ndEd/CodeFromTheReasonedSchemer2ndEd
+      （trs2-impl.scm），即下面这本书第 10 章与附录 A 的代码：
+      Daniel P. Friedman, William E. Byrd, Oleg Kiselyov, and Jason Hemann,
+      The Reasoned Schemer, second edition, MIT Press, 2018.
 
-microKanren 的许可如下：
+改动：加了类型定义与标注；未知项是按身份区分的结构体，名字取自 fresh 里写的标识符；
+字面量用 equal? 比较；列表与 amb 两个版本的 ==、succeed、fail、disj2、conj2、run-goal
+是另写的。
 
-Copyright (C) 2013 Jason Hemann and Daniel P. Friedman
+原代码的许可如下：
+
+Copyright (c) 2018 Daniel P. Friedman, William E. Byrd, Oleg Kiselyov,
+and Jason Hemann
 
 Permission is hereby granted, free of charge, to any person obtaining
 a copy of this software and associated documentation files (the
