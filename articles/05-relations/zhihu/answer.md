@@ -203,7 +203,13 @@
     (λ () ((conj g ...) s))))
 ```
 
-`disj` 用 `mplus` 接，`conj` 用 `bind` 传，别的都不动。取答案时要几个就调用几次：
+`disj` 用 `mplus` 接，`conj` 用 `bind` 传，别的都不动。`alwayso` 照新的规矩重写，递归的那一次不再靠 `fresh` 垫着：
+
+```racket
+(defrel (alwayso) (disj (== 1 1) (alwayso)))
+```
+
+取答案的 `run` 多收一个数，要几组就沿着流往下调用几次；写 `#f` 是全要，相当于原来的 `run*`：
 
 ```racket
 > (run 3 (q) (alwayso) (== q 'again))
@@ -223,13 +229,13 @@
 
 这叫 **交错**（*interleaving*）。两条路轮流走，哪一条都不会因为另一条没有尽头而等不到。入口处的那次推迟因此有了第二个用处：它是这条路把轮次让出去的地方。
 
-这几行改写自 Jason Hemann 与 Daniel P. Friedman 的 [microKanren](https://github.com/jasonhemann/microKanren)（*μKanren: A Minimal Functional Core for Relational Programming*，Scheme Workshop 2013）。完整的语言，照两版书的代码逐个定义写成 Typed Racket 的，在 [miniKanren-typed](https://github.com/NoahStoryM/miniKanren-typed) 里。当初写它，是因为读书时发现手边的几个 miniKanren 包不是缺运算符，就是有几个例子跑出来和书上不一样；照着书抄一遍，再配上类型，才算把上面这些弄明白。
+这几行改写自 Jason Hemann 与 Daniel P. Friedman 的 [microKanren](https://github.com/jasonhemann/microKanren)（*μKanren: A Minimal Functional Core for Relational Programming*，Scheme Workshop 2013）。完整的语言，照两版书的代码逐个定义写成 Typed Racket 的，在我的 [miniKanren-typed](https://github.com/NoahStoryM/miniKanren-typed) 里。当初写它，是因为我读书时发现手边的几个 miniKanren 包不是缺运算符，就是有几个例子跑出来和书上不一样；照着书抄一遍，再配上类型，才算把上面这些弄明白。
 
 ## 把流藏起来
 
 回头看那四十行，有一样东西到处都是：`==` 要把结果包进列表，`disj` 要 `append`，`conj` 要 `append-map`，换成流以后是 `mplus` 与 `bind`。每个目标都在亲手搬运「好几种可能」。可我们心里想的要简单得多：一个目标交出一张表，只是有时候它会交出好几次，有时候一次也不交。
 
-有一个运算符，做的正是「交出好几次」。它叫 `amb`；这里用 Racket 的 [amb](https://github.com/NoahStoryM/amb) 库，3.0 版：
+有一个运算符，做的正是「交出好几次」。它叫 `amb`；这里用我写的 [amb](https://github.com/NoahStoryM/amb) 库，3.0 版：
 
 ```racket
 > (for/list ([p (in-amb (let ([a (amb 1 2 3)] [b (amb 1 2 3)])
@@ -267,7 +273,7 @@
     ((conj g ...) s)))
 ```
 
-同样的三个程序：
+三个关系都用这个 `defrel` 定义：`alwayso`、`nevero` 的写法与流的版本一字不差，`appendo` 只把 `define` 换成 `defrel`。同样的三个程序：
 
 ```racket
 > (run #f (x y) (appendo x y '(1 2 3)))
@@ -313,7 +319,14 @@
 (define ((conj/local g1 g2) s) (g2 (amb-local (g1 s))))
 ```
 
-`amb-local` 先把 `g1` 自己的几种可能合成一条，再交给 `g2`，这是 `bind` 的做法。取 `g1` 为嵌成 `((x = 1 或 x = 2) 或 x = 3)` 的三个备选，`g2` 在入口处暂停一次，`xs` 只读出每个答案里的 `x`：
+`amb-local` 先把 `g1` 自己的几种可能合成一条，再交给 `g2`，这是 `bind` 的做法。取 `g1` 为嵌成两层的三个备选，`g2` 在入口处暂停一次，`xs` 只读出每个答案里的 `x`：
+
+```racket
+(define x (var 'x)) (define y (var 'y))
+(define three (disj (disj (== x 1) (== x 2)) (== x 3)))
+(define later (λ (s) (amb-pause) ((== y 'p) s)))
+(define (xs goal) (for/list ([s (in-amb (goal '()))]) (walk x s)))
+```
 
 ```racket
 > (parameterize ([current-amb-merger amb-interleave])
@@ -324,7 +337,7 @@
 
 函数复合让 `g2` 在 `g1` 的每条岔路里面各自运行，轮次跟着岔路的形状走；`bind` 让 `g2` 跟着 `g1` 答案的先后走。复合有一条好性质：`(A 或 B) 并且 C` 与 `(A 并且 C) 或 (B 并且 C)` 连先后都一样。`bind` 换来的是与书上逐项相同的顺序。
 
-[ambKanren](https://github.com/NoahStoryM/ambKanren) 是照这条路写成的库：microKanren 与两版书的语言各一个模块，目标都是代换到代换的普通函数。为了能拿书当答案来对，它的「并且」用的是 `amb-local` 那一种；配上 `amb-interleave`，测试覆盖的书中例子（第一版 228 个，第二版 285 个）答案与先后全部相同。同一段 `appendo`，交给用流的 miniKanren-typed 和用 `amb` 的 ambKanren：
+[ambKanren](https://github.com/NoahStoryM/ambKanren) 是我照这条路写成的库：microKanren 与两版书的语言各一个模块，目标都是直接写成的普通函数：收一张代换交出一张代换，microKanren 那一个模块里是代换外加一个给未知项编号的计数器。为了能拿书当答案来对，它的「并且」用的是 `amb-local` 那一种；配上 `amb-interleave`，测试覆盖的书中例子（第一版 228 个，第二版 285 个）答案与先后全部相同。同一段 `appendo`，交给用流的 miniKanren-typed 和用 `amb` 的 ambKanren（用的是第二版的语言，它把没定下来的项写成 `_0`，不带点）：
 
 ```racket
 > (run 4 (x y z) (appendo x y z))
@@ -372,9 +385,9 @@ amb  ((() _0 _0) ((_0) _1 (_0 . _1)) ((_0 _1) _2 (_0 _1 . _2)) ((_0 _1 _2) _3 (_
 | `(fresh (x) g)` | ∃x. g | 遮住一列 |
 | `(run* (x) g)` | { x \| g } | 把表读出来 |
 
-只有等式、或者、并且、存在这几样，没有「不」，也没有「所有」。这样的句子有一个好处：它成立的时候，总能拿出让它成立的东西来。`run*` 交回来的每一组答案，都是这样一件拿得出来的证据。至于找不找得到，是另一回事：搜索可能停不下来。
+只有等式、或者、并且、存在这几样，没有「不」，也没有「所有」。这样的句子成立，就有让它成立的那组值；`run*` 交回来的每一组答案，就是这样一组值。至于找不找得到，是另一回事：搜索可能停不下来。
 
-回到开头。`appendo` 的定义里没有人写过「拆」，是因为它根本没有写「接」。它写的是三张列表之间的一张表，哪三张摆在一起算数。正着问，是遮住前两列去查第三列；倒着问，是遮住第三列去查前两列。表还是那一张。
+回到开头。`appendo` 的定义里没有人写过「拆」，是因为它根本没有写「接」。它写的是三张列表之间的一张表，哪三张摆在一起算数。正着问，是定住前两列，读第三列；倒着问，是定住第三列，读前两列。表还是那一张。
 
 ---
 
